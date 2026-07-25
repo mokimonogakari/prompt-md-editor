@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="description" content="生成AIのプロンプト作成に特化したマークダウンエディタ。テンプレート挿入・ライブプレビュー・.md出力対応。">
+<title>Prompt MD Editor — 生成AIプロンプト作成用マークダウンエディタ</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1 class="app-title">Prompt MD Editor</h1>
+  <input id="doc-title" class="doc-title" type="text" placeholder="ドキュメント名（ファイル名になります）" maxlength="80">
+  <div class="header-actions">
+    <select id="template-select" class="template-select" aria-label="プロンプトテンプレートを選択">
+      <option value="">テンプレートを挿入…</option>
+    </select>
+    <button id="btn-help" type="button" title="マークダウン記法ヘルプ">記法ヘルプ</button>
+    <button id="btn-copy" type="button" title="マークダウンをクリップボードにコピー">コピー</button>
+    <button id="btn-download" type="button" class="primary" title="マークダウンファイルとして保存 (Ctrl+S)">.md ダウンロード</button>
+  </div>
+</header>
+
+<div id="toolbar" class="toolbar" role="toolbar" aria-label="マークダウン記法ツールバー">
+  <button type="button" data-action="h1" title="見出し1">H1</button>
+  <button type="button" data-action="h2" title="見出し2">H2</button>
+  <button type="button" data-action="h3" title="見出し3">H3</button>
+  <span class="sep"></span>
+  <button type="button" data-action="bold" title="太字 (Ctrl+B)"><strong>B</strong></button>
+  <button type="button" data-action="italic" title="斜体 (Ctrl+I)"><em>I</em></button>
+  <button type="button" data-action="strike" title="取り消し線"><s>S</s></button>
+  <button type="button" data-action="code" title="インラインコード">`code`</button>
+  <span class="sep"></span>
+  <button type="button" data-action="ul" title="箇条書きリスト">• リスト</button>
+  <button type="button" data-action="ol" title="番号付きリスト">1. 番号</button>
+  <button type="button" data-action="check" title="チェックリスト">☑ チェック</button>
+  <button type="button" data-action="quote" title="引用">❝ 引用</button>
+  <span class="sep"></span>
+  <button type="button" data-action="codeblock" title="コードブロック">``` ブロック</button>
+  <button type="button" data-action="table" title="表">表</button>
+  <button type="button" data-action="link" title="リンク">リンク</button>
+  <button type="button" data-action="hr" title="区切り線">―</button>
+  <button type="button" data-action="xmltag" title="XMLタグ（Claude等のプロンプト区切りに有効）">&lt;tag&gt;</button>
+  <span class="spacer"></span>
+  <div class="view-switch" role="group" aria-label="表示切り替え">
+    <button type="button" id="view-edit" class="active">編集</button>
+    <button type="button" id="view-split">分割</button>
+    <button type="button" id="view-preview">プレビュー</button>
+  </div>
+</div>
+
+<main id="main" class="main split">
+  <section class="pane editor-pane">
+    <textarea id="editor" spellcheck="false" placeholder="ここにマークダウンでプロンプトを書いてください。&#10;右上の「テンプレートを挿入…」から定型プロンプトの雛形を呼び出せます。"></textarea>
+  </section>
+  <section class="pane preview-pane">
+    <div id="preview" class="preview markdown-body" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer class="status-bar">
+  <span id="stat-chars">0 文字</span>
+  <span id="stat-lines">1 行</span>
+  <span id="save-status" class="save-status"></span>
+  <span class="spacer"></span>
+  <button id="btn-clear" type="button" class="danger-link">全消去</button>
+</footer>
+
+<aside id="help-panel" class="help-panel" hidden>
+  <div class="help-inner">
+    <div class="help-head">
+      <h2>マークダウン記法チートシート</h2>
+      <button id="btn-help-close" type="button" aria-label="閉じる">×</button>
+    </div>
+    <table class="cheat">
+      <tr><th>書き方</th><th>意味</th></tr>
+      <tr><td><code># 見出し</code></td><td>見出し（# の数でレベル1〜6）</td></tr>
+      <tr><td><code>**太字**</code> / <code>*斜体*</code></td><td>強調</td></tr>
+      <tr><td><code>~~取り消し~~</code></td><td>取り消し線</td></tr>
+      <tr><td><code>- 項目</code></td><td>箇条書き（インデントで階層化）</td></tr>
+      <tr><td><code>1. 項目</code></td><td>番号付きリスト</td></tr>
+      <tr><td><code>- [ ] タスク</code></td><td>チェックリスト</td></tr>
+      <tr><td><code>&gt; 引用</code></td><td>引用ブロック</td></tr>
+      <tr><td><code>`コード`</code></td><td>インラインコード</td></tr>
+      <tr><td><code>```言語名 … ```</code></td><td>コードブロック</td></tr>
+      <tr><td><code>| A | B |</code></td><td>表（2行目に <code>|---|---|</code>）</td></tr>
+      <tr><td><code>[表示名](URL)</code></td><td>リンク</td></tr>
+      <tr><td><code>---</code></td><td>水平線（セクション区切り）</td></tr>
+      <tr><td><code>&lt;context&gt;…&lt;/context&gt;</code></td><td>XMLタグ。Claude等では情報の区切りとして有効</td></tr>
+    </table>
+    <h3>プロンプト作成のコツ</h3>
+    <ul>
+      <li>見出し（<code>##</code>）で「役割・背景・指示・制約・出力形式」を明確に区切る</li>
+      <li>制約や条件は箇条書きで列挙すると解釈のブレが減る</li>
+      <li>入力データや例文は <code>```</code> やXMLタグで囲み、指示と区別する</li>
+      <li>出力形式は例（Few-shot）や表で具体的に示す</li>
+    </ul>
+  </div>
+</aside>
+
+<script src="js/vendor/marked.min.js"></script>
+<script src="js/vendor/purify.min.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
